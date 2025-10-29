@@ -1,12 +1,13 @@
-Flask==2.3.3
+Flask==3.0.0
 flask-cors==4.0.0
-Werkzeug==2.3.7
-ultralytics==8.0.196
-opencv-python-headless==4.8.0.76
-numpy==1.24.3
-Pillow==10.0.1
-torch==2.0.1
-torchvision==0.15.2
+Werkzeug==3.0.1
+ultralytics==8.1.34
+opencv-python-headless==4.9.0.80
+numpy==1.26.4
+Pillow==10.2.0
+torch==2.2.0
+torchvision==0.17.0
 gunicorn==21.2.0
-setuptools==68.2.2
+setuptools==69.0.3
+wheel==0.42.0
 
