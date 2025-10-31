@@ -33,7 +33,7 @@ class ThreatDetector:
     
     def load_model(self) -> bool:
         """
-        Load the YOLO model
+        Load the YOLO model with memory optimization
         
         Returns:
             bool: True if model loaded successfully, False otherwise
@@ -43,7 +43,12 @@ class ThreatDetector:
                 print(f"❌ Model file not found: {self.model_path}")
                 return False
             
+            # Load model with memory optimization
+            import torch
+            torch.set_num_threads(2)  # Limit CPU threads
+            
             self.model = YOLO(self.model_path)
+            self.model.overrides['verbose'] = False  # Reduce logging overhead
             self.class_names = self.model.names
             
             print(f"✅ Threat detector initialized successfully")
@@ -56,7 +61,7 @@ class ThreatDetector:
             print(f"❌ Error loading model: {e}")
             return False
     
-    def detect_threats(self, image_path: str) -> Dict:
+    def detect_threats(self, image_path: str, cleanup: bool = True) -> Dict:
         """
         Detect threats in an image
         
@@ -96,8 +101,19 @@ class ThreatDetector:
             
             height, width = image.shape[:2]
             
-            # Run detection
-            results = self.model(image_path, conf=self.confidence_threshold, iou=0.45, verbose=False)
+            # Resize large images to save memory (max 1280px)
+            max_size = int(os.environ.get('MAX_IMAGE_SIZE', 1280))
+            if max(height, width) > max_size:
+                scale = max_size / max(height, width)
+                new_width = int(width * scale)
+                new_height = int(height * scale)
+                image = cv2.resize(image, (new_width, new_height), interpolation=cv2.INTER_AREA)
+                # Save resized image temporarily
+                cv2.imwrite(image_path, image)
+                height, width = new_height, new_width
+            
+            # Run detection with reduced image size
+            results = self.model(image_path, conf=self.confidence_threshold, iou=0.45, verbose=False, imgsz=640)
             
             if not results:
                 return {
@@ -149,7 +165,7 @@ class ThreatDetector:
             # Calculate overall threat assessment
             overall_threat = self._assess_overall_threat(threats)
             
-            return {
+            result_data = {
                 'success': True,
                 'threats': threats,
                 'threat_count': len(threats),
@@ -166,7 +182,17 @@ class ThreatDetector:
                 }
             }
             
+            # Memory cleanup
+            if cleanup:
+                import gc
+                del image, results, result
+                gc.collect()
+            
+            return result_data
+            
         except Exception as e:
+            import gc
+            gc.collect()
             return {
                 'success': False,
                 'error': f'Detection error: {str(e)}',
